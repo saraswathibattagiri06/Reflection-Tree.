@@ -1,0 +1,824 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>End-of-Day Reflection</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #0a0a0f;
+      --bg2: #10101a;
+      --surface: #14141f;
+      --border: #1e1e30;
+      --border-bright: #2a2a44;
+      --text: #e8e6f0;
+      --text-muted: #7a7898;
+      --text-dim: #4a4868;
+      --accent: #c084fc;
+      --accent2: #818cf8;
+      --accent3: #34d399;
+      --warm: #fb923c;
+      --danger: #f87171;
+      --glow: rgba(192, 132, 252, 0.12);
+      --glow-strong: rgba(192, 132, 252, 0.25);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { font-size: 16px; scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Cormorant Garamond', Georgia, serif;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow-x: hidden;
+    }
+
+    /* Ambient background */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 60% 50% at 20% 20%, rgba(129, 140, 248, 0.06) 0%, transparent 60%),
+        radial-gradient(ellipse 50% 40% at 80% 80%, rgba(192, 132, 252, 0.06) 0%, transparent 60%),
+        radial-gradient(ellipse 40% 40% at 50% 50%, rgba(52, 211, 153, 0.03) 0%, transparent 60%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    #app {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      max-width: 680px;
+      margin: 0 auto;
+      padding: 2rem 1.5rem;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    /* Header */
+    .app-header {
+      text-align: center;
+      margin-bottom: 3rem;
+      opacity: 0;
+      animation: fadeUp 0.8s ease 0.2s forwards;
+    }
+
+    .app-header .logo {
+      font-family: 'DM Mono', monospace;
+      font-size: 0.65rem;
+      letter-spacing: 0.2em;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      margin-bottom: 0.5rem;
+    }
+
+    /* Progress bar */
+    .progress-bar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      height: 2px;
+      background: linear-gradient(90deg, var(--accent2), var(--accent), var(--accent3));
+      transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+      z-index: 100;
+      box-shadow: 0 0 12px var(--accent);
+    }
+
+    /* Axis indicator */
+    .axis-indicator {
+      display: flex;
+      gap: 0.5rem;
+      justify-content: center;
+      margin-bottom: 2.5rem;
+      opacity: 0;
+      animation: fadeUp 0.8s ease 0.4s forwards;
+    }
+
+    .axis-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--border-bright);
+      transition: all 0.4s ease;
+    }
+
+    .axis-dot.active {
+      background: var(--accent);
+      box-shadow: 0 0 8px var(--accent);
+      transform: scale(1.4);
+    }
+
+    .axis-dot.done {
+      background: var(--accent3);
+    }
+
+    /* Card */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 2.5rem;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--border-bright), transparent);
+    }
+
+    /* Node type badge */
+    .node-badge {
+      font-family: 'DM Mono', monospace;
+      font-size: 0.6rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      margin-bottom: 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .node-badge .badge-dot {
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+    }
+
+    .badge-dot.question { background: var(--accent2); }
+    .badge-dot.reflection { background: var(--accent3); }
+    .badge-dot.bridge { background: var(--warm); }
+    .badge-dot.summary { background: var(--accent); }
+    .badge-dot.start, .badge-dot.end { background: var(--text-dim); }
+
+    /* Question text */
+    .node-text {
+      font-size: 1.55rem;
+      font-weight: 300;
+      line-height: 1.55;
+      color: var(--text);
+      margin-bottom: 2rem;
+      letter-spacing: 0.01em;
+    }
+
+    .node-text em {
+      font-style: italic;
+      color: var(--accent);
+    }
+
+    /* For reflection/bridge/start/end — no options */
+    .node-text.large {
+      font-size: 1.35rem;
+      line-height: 1.7;
+      color: var(--text-muted);
+    }
+
+    .node-text.large strong {
+      color: var(--text);
+      font-weight: 400;
+    }
+
+    /* Options */
+    .options-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .option-btn {
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1rem 1.25rem;
+      text-align: left;
+      cursor: pointer;
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1.1rem;
+      font-weight: 300;
+      color: var(--text-muted);
+      transition: all 0.25s ease;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      line-height: 1.4;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .option-btn::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: var(--glow);
+      opacity: 0;
+      transition: opacity 0.25s ease;
+    }
+
+    .option-btn:hover {
+      border-color: var(--border-bright);
+      color: var(--text);
+      transform: translateX(4px);
+    }
+
+    .option-btn:hover::before { opacity: 1; }
+
+    .option-btn.selected {
+      border-color: var(--accent);
+      color: var(--text);
+      background: rgba(192, 132, 252, 0.08);
+    }
+
+    .option-letter {
+      font-family: 'DM Mono', monospace;
+      font-size: 0.65rem;
+      letter-spacing: 0.1em;
+      color: var(--text-dim);
+      min-width: 1.2rem;
+      text-transform: uppercase;
+    }
+
+    .option-btn.selected .option-letter {
+      color: var(--accent);
+    }
+
+    /* Continue / CTA button */
+    .cta-btn {
+      margin-top: 2rem;
+      background: transparent;
+      border: 1px solid var(--border-bright);
+      border-radius: 10px;
+      padding: 0.875rem 1.5rem;
+      color: var(--text-muted);
+      font-family: 'DM Mono', monospace;
+      font-size: 0.7rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: all 0.25s ease;
+      width: 100%;
+    }
+
+    .cta-btn:hover:not(:disabled) {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: var(--glow);
+    }
+
+    .cta-btn:disabled {
+      opacity: 0.3;
+      cursor: not-allowed;
+    }
+
+    .cta-btn.primary {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    /* Summary card styles */
+    .summary-section {
+      margin-bottom: 1.5rem;
+      padding-bottom: 1.5rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .summary-section:last-child {
+      border-bottom: none;
+      margin-bottom: 0;
+      padding-bottom: 0;
+    }
+
+    .summary-axis {
+      font-family: 'DM Mono', monospace;
+      font-size: 0.6rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      margin-bottom: 0.5rem;
+    }
+
+    .summary-text {
+      font-size: 1.05rem;
+      font-weight: 300;
+      line-height: 1.7;
+      color: var(--text-muted);
+    }
+
+    .summary-signal {
+      display: inline-block;
+      margin-top: 0.4rem;
+      padding: 0.2rem 0.6rem;
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      font-family: 'DM Mono', monospace;
+      font-size: 0.6rem;
+      letter-spacing: 0.1em;
+      color: var(--text-dim);
+    }
+
+    .summary-signal.internal, .summary-signal.contribution, .summary-signal.wide {
+      border-color: rgba(52, 211, 153, 0.3);
+      color: var(--accent3);
+    }
+
+    /* Axis label */
+    .axis-label {
+      font-family: 'DM Mono', monospace;
+      font-size: 0.55rem;
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      margin-bottom: 0.5rem;
+    }
+
+    /* Animation */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    .card-enter {
+      animation: fadeUp 0.5s ease forwards;
+    }
+
+    .card-exit {
+      animation: fadeIn 0.2s ease reverse forwards;
+    }
+
+    /* End screen */
+    .end-screen {
+      text-align: center;
+    }
+
+    .end-screen .end-time {
+      font-family: 'DM Mono', monospace;
+      font-size: 0.65rem;
+      letter-spacing: 0.2em;
+      color: var(--text-dim);
+      margin-bottom: 1.5rem;
+    }
+
+    .end-screen .end-message {
+      font-size: 1.8rem;
+      font-weight: 300;
+      color: var(--text);
+      line-height: 1.4;
+      margin-bottom: 0.75rem;
+    }
+
+    .end-screen .end-sub {
+      font-size: 1.1rem;
+      color: var(--text-dim);
+      font-style: italic;
+    }
+
+    .restart-btn {
+      margin-top: 2.5rem;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.6rem 1.2rem;
+      color: var(--text-dim);
+      font-family: 'DM Mono', monospace;
+      font-size: 0.6rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: all 0.25s ease;
+    }
+
+    .restart-btn:hover {
+      border-color: var(--border-bright);
+      color: var(--text-muted);
+    }
+
+    /* Loading */
+    #loading {
+      text-align: center;
+      font-family: 'DM Mono', monospace;
+      font-size: 0.7rem;
+      letter-spacing: 0.2em;
+      color: var(--text-dim);
+      text-transform: uppercase;
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--border-bright); border-radius: 2px; }
+  </style>
+</head>
+<body>
+  <div class="progress-bar" id="progressBar" style="width: 0%"></div>
+
+  <div id="app">
+    <header class="app-header">
+      <div class="logo">DeepThought · Evening Reflection</div>
+    </header>
+
+    <div class="axis-indicator" id="axisIndicator">
+      <div class="axis-dot" id="dot-0" title="Locus"></div>
+      <div class="axis-dot" id="dot-1" title="Orientation"></div>
+      <div class="axis-dot" id="dot-2" title="Radius"></div>
+    </div>
+
+    <div id="main">
+      <div id="loading">Loading reflection tree...</div>
+    </div>
+  </div>
+
+  <script>
+    // ─── State ────────────────────────────────────────────────────────────────
+    const state = {
+      answers: {},       // nodeId → selected answer text
+      signals: {
+        locus: { internal: 0, external: 0 },
+        orientation: { contribution: 0, entitlement: 0 },
+        radius: { self: 0, team: 0, wide: 0 }
+      },
+      currentNodeId: 'START',
+      history: [],
+      totalNodes: 0,
+      visitedCount: 0
+    };
+
+    // ─── Tree ─────────────────────────────────────────────────────────────────
+    let TREE = {};
+
+    // ─── Axis mapping ─────────────────────────────────────────────────────────
+    const AXIS_FOR_NODE = {};
+
+    function inferAxis(nodeId) {
+      if (nodeId.startsWith('A1') || nodeId.startsWith('BRIDGE_1')) return 0;
+      if (nodeId.startsWith('A2') || nodeId.startsWith('BRIDGE_2')) return 1;
+      if (nodeId.startsWith('A3') || nodeId.startsWith('SUMMARY')) return 2;
+      return -1;
+    }
+
+    // ─── Load tree ────────────────────────────────────────────────────────────
+    async function loadTree() {
+      try {
+        const res = await fetch('tree.json');
+        const data = await res.json();
+        data.nodes.forEach(n => { TREE[n.id] = n; });
+        state.totalNodes = data.nodes.filter(n => ['question', 'reflection', 'bridge', 'summary', 'end'].includes(n.type)).length;
+        renderNode('START');
+      } catch (e) {
+        document.getElementById('loading').textContent = 'Error loading tree. Make sure reflection-tree.json is in the same folder and you\'re using a local server.';
+        console.error(e);
+      }
+    }
+
+    // ─── Signal tallying ──────────────────────────────────────────────────────
+    function applySignal(signal) {
+      if (!signal) return;
+      const [axis, pole] = signal.split(':');
+      if (state.signals[axis] && state.signals[axis][pole] !== undefined) {
+        state.signals[axis][pole]++;
+      }
+    }
+
+    function getDominant(axis) {
+      const s = state.signals[axis];
+      const entries = Object.entries(s);
+      entries.sort((a, b) => b[1] - a[1]);
+      return entries[0][0];
+    }
+
+    // ─── Interpolation ────────────────────────────────────────────────────────
+    function interpolate(text) {
+      // Replace {nodeId.answer} with stored answers
+      text = text.replace(/\{([A-Z0-9_]+)\.answer\}/g, (_, nodeId) => {
+        return state.answers[nodeId] || '(your earlier answer)';
+      });
+
+      // Replace {axis.dominant}
+      text = text.replace(/\{(\w+)\.dominant\}/g, (_, axis) => {
+        return getDominant(axis);
+      });
+
+      // Evaluate simple ternary: {cond === 'val' ? 'a' : 'b'}
+      text = text.replace(/\{(\w+)\.dominant === '([^']+)' \? '([^']+)' : '([^']+)'\}/g, (_, axis, val, ifTrue, ifFalse) => {
+        return getDominant(axis) === val ? ifTrue : ifFalse;
+      });
+
+      return text;
+    }
+
+    // ─── Progress ─────────────────────────────────────────────────────────────
+    function updateProgress(nodeId) {
+      const nodeOrder = [
+        'START', 'A1_OPEN', 'A1_Q_HIGH', 'A1_Q_LOW', 'A1_R_INT_STRONG',
+        'A1_R_INT_MILD', 'A1_R_EXT_MILD', 'A1_R_EXT_STRONG', 'A1_Q2',
+        'BRIDGE_1_2_INT', 'BRIDGE_1_2_EXT',
+        'A2_OPEN', 'A2_Q_CONTRIB', 'A2_Q_ENTITLE', 'A2_R_CONTRIB_PURE',
+        'A2_R_CONTRIB_MIXED', 'A2_R_ENTITLE_MILD', 'A2_R_ENTITLE_STRONG', 'A2_Q2',
+        'BRIDGE_2_3_CONTRIB', 'BRIDGE_2_3_ENTITLE',
+        'A3_OPEN', 'A3_Q_SELF', 'A3_Q_TEAM', 'A3_Q_WIDE',
+        'A3_R_SELF_STRONG', 'A3_R_SELF_MILD', 'A3_R_TEAM', 'A3_R_WIDE', 'A3_Q2',
+        'SUMMARY_SELF', 'SUMMARY_TEAM', 'SUMMARY_WIDE', 'END'
+      ];
+      const idx = nodeOrder.indexOf(nodeId);
+      const pct = idx < 0 ? 0 : Math.round((idx / (nodeOrder.length - 1)) * 100);
+      document.getElementById('progressBar').style.width = pct + '%';
+
+      // Axis dots
+      const axis = inferAxis(nodeId);
+      for (let i = 0; i < 3; i++) {
+        const dot = document.getElementById('dot-' + i);
+        dot.className = 'axis-dot';
+        if (i < axis) dot.classList.add('done');
+        else if (i === axis) dot.classList.add('active');
+      }
+    }
+
+    // ─── Render ───────────────────────────────────────────────────────────────
+    function renderNode(nodeId) {
+      const node = TREE[nodeId];
+      if (!node) {
+    console.error(`CRITICAL ERROR: Node "${nodeId}" is missing from TREE.JSON.`);
+    document.getElementById('main').innerHTML = `
+      <div class="card" style="border: 1px solid var(--danger)">
+        <div class="node-text">The system reached an undefined logic point. Reverting to Start...</div>
+        <button class="restart-btn" onclick="restartSession()">Reset System</button>
+      </div>`;
+    return;
+  }
+
+      state.currentNodeId = nodeId;
+      applySignal(node.signal);
+      updateProgress(nodeId);
+
+      const main = document.getElementById('main');
+
+      // Fade out then render
+      main.style.opacity = '0';
+      main.style.transform = 'translateY(8px)';
+      main.style.transition = 'opacity 0.2s ease, transform 0.2s ease';
+
+      setTimeout(() => {
+        main.innerHTML = renderNodeHTML(node);
+        main.style.opacity = '1';
+        main.style.transform = 'translateY(0)';
+
+        // Auto-advance for non-interactive nodes
+        if (['start', 'decision', 'bridge'].includes(node.type)) {
+          scheduleAutoAdvance(node);
+        }
+
+        // Attach option click handlers
+        document.querySelectorAll('.option-btn').forEach(btn => {
+          btn.addEventListener('click', () => handleOptionSelect(btn, node));
+        });
+
+        // Continue button
+        const cta = document.getElementById('ctaBtn');
+        if (cta) {
+          cta.addEventListener('click', () => handleContinue(node));
+        }
+
+        // Restart button
+        const restart = document.getElementById('restartBtn');
+        if (restart) {
+          restart.addEventListener('click', () => restartSession());
+        }
+      }, 220);
+    }
+
+    function renderNodeHTML(node) {
+      const text = interpolate(node.text);
+
+      switch (node.type) {
+        case 'start': return renderStart(node, text);
+        case 'question': return renderQuestion(node, text);
+        case 'decision': return ''; // invisible
+        case 'reflection': return renderReflection(node, text);
+        case 'bridge': return renderBridge(node, text);
+        case 'summary': return renderSummary(node, text);
+        case 'end': return renderEnd(node, text);
+        default: return `<div>${text}</div>`;
+      }
+    }
+
+    function renderStart(node, text) {
+      const now = new Date();
+      const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      return `
+        <div class="card card-enter">
+          <div class="node-badge"><span class="badge-dot start"></span> Evening Check-in · ${timeStr}</div>
+          <div class="node-text large">${text}</div>
+        </div>
+      `;
+    }
+
+    function renderQuestion(node, text) {
+      const letters = 'ABCDE';
+      const optionsHTML = node.options.map((opt, i) => `
+        <button class="option-btn" data-value="${escapeAttr(opt)}">
+          <span class="option-letter">${letters[i]}</span>
+          <span>${escapeHTML(opt)}</span>
+        </button>
+      `).join('');
+
+      return `
+        <div class="card card-enter">
+          <div class="node-badge"><span class="badge-dot question"></span> Question</div>
+          <div class="node-text">${escapeHTML(text)}</div>
+          <div class="options-list">${optionsHTML}</div>
+          <button class="cta-btn" id="ctaBtn" disabled>Continue →</button>
+        </div>
+      `;
+    }
+
+    function renderReflection(node, text) {
+      return `
+        <div class="card card-enter">
+          <div class="node-badge"><span class="badge-dot reflection"></span> Reflection</div>
+          <div class="node-text large">${escapeHTML(text)}</div>
+          <button class="cta-btn primary" id="ctaBtn">Continue →</button>
+        </div>
+      `;
+    }
+
+    function renderBridge(node, text) {
+      return `
+        <div class="card card-enter">
+          <div class="node-badge"><span class="badge-dot bridge"></span> Shifting gears</div>
+          <div class="node-text large" style="color: var(--text); font-style: italic;">${escapeHTML(text)}</div>
+        </div>
+      `;
+    }
+
+    function renderSummary(node, text) {
+      // Parse the multiline summary
+      const lines = text.split('\n').filter(l => l.trim());
+      const title = lines[0];
+      const rest = lines.slice(1);
+
+      // Group into paragraphs separated by blank lines (handled by filter)
+      const axisSections = [];
+      const axes = ['On agency', 'On contribution', 'On radius'];
+      let currentSection = null;
+      rest.forEach(line => {
+        const axisMatch = axes.find(a => line.startsWith(a));
+        if (axisMatch) {
+          currentSection = { label: axisMatch, text: line };
+          axisSections.push(currentSection);
+        } else if (currentSection) {
+          currentSection.text += ' ' + line;
+        }
+      });
+
+      const lDom = getDominant('locus');
+      const oDom = getDominant('orientation');
+      const rDom = getDominant('radius');
+
+      const sectionsHTML = axisSections.map((s, i) => {
+        const axis = ['locus', 'orientation', 'radius'][i];
+        const dominant = [lDom, oDom, rDom][i];
+        const isPositive = ['internal', 'contribution', 'wide'].includes(dominant);
+        return `
+          <div class="summary-section">
+            <div class="summary-axis">${s.label}</div>
+            <div class="summary-text">${escapeHTML(interpolate(s.text))}</div>
+            <span class="summary-signal ${isPositive ? dominant : ''}">${dominant}</span>
+          </div>
+        `;
+      }).join('');
+
+      return `
+        <div class="card card-enter">
+          <div class="node-badge"><span class="badge-dot summary"></span> Today's Reflection</div>
+          <div class="node-text" style="margin-bottom: 1.75rem; font-size: 1.2rem;">${escapeHTML(title)}</div>
+          ${sectionsHTML}
+          <button class="cta-btn primary" id="ctaBtn" style="margin-top: 1.5rem;">Close the day →</button>
+        </div>
+      `;
+    }
+
+    function renderEnd(node, text) {
+      const lines = text.split('\n').filter(l => l.trim());
+      return `
+        <div class="card card-enter end-screen">
+          <div class="end-time">${new Date().toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })}</div>
+          <div class="end-message">${escapeHTML(lines[0] || text)}</div>
+          ${lines[1] ? `<div class="end-sub">${escapeHTML(lines[1])}</div>` : ''}
+          <button class="restart-btn" id="restartBtn">Start a new session</button>
+        </div>
+      `;
+    }
+
+    // ─── Interactions ─────────────────────────────────────────────────────────
+    function handleOptionSelect(btn, node) {
+      document.querySelectorAll('.option-btn').forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+      state.answers[node.id] = btn.dataset.value;
+
+      const cta = document.getElementById('ctaBtn');
+      if (cta) {
+        cta.disabled = false;
+        cta.textContent = 'Continue →';
+      }
+    }
+
+    function handleContinue(node) {
+      const nextId = resolveNext(node);
+      if (nextId) {
+        state.history.push(node.id);
+        renderNode(nextId);
+      }
+    }
+
+    function scheduleAutoAdvance(node) {
+      const delay = node.type === 'start' ? 1800 : node.type === 'bridge' ? 2500 : 0;
+      if (delay > 0) {
+        setTimeout(() => {
+          const nextId = resolveNext(node);
+          if (nextId) {
+            state.history.push(node.id);
+            renderNode(nextId);
+          }
+        }, delay);
+      } else {
+        // Decision: immediate
+        const nextId = resolveNext(node);
+        if (nextId) {
+          state.history.push(node.id);
+          renderNode(nextId);
+        }
+      }
+    }
+
+    // ─── Routing ──────────────────────────────────────────────────────────────
+    function resolveNext(node) {
+  if (node.type === 'end') return null;
+
+  // 1. Check for interactive selection (hallucination-proof: fixed options)
+  if (node.type === 'question') {
+    const selectedAnswer = state.answers[node.id];
+    // Find the option object that matches the text
+    const optionObj = node.optionLogic.find(o => o.text === selectedAnswer);
+    if (optionObj) return optionObj.target;
+  }
+
+  // 2. Check for manual override (The "Track" method)
+  if (node.target) return node.target;
+
+  // 3. Fallback: If AI forgot a link, send to Summary
+  return 'SUMMARY_NODE'; 
+}
+
+    function restartSession() {
+      // Reset state
+      state.answers = {};
+      state.signals = {
+        locus: { internal: 0, external: 0 },
+        orientation: { contribution: 0, entitlement: 0 },
+        radius: { self: 0, team: 0, wide: 0 }
+      };
+      state.history = [];
+      state.currentNodeId = 'START';
+      renderNode('START');
+    }
+
+    // ─── Utils ────────────────────────────────────────────────────────────────
+    function escapeHTML(str) {
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    function escapeAttr(str) {
+      return String(str).replace(/"/g, '&quot;');
+    }
+
+    // ─── Boot ─────────────────────────────────────────────────────────────────
+    loadTree();
+  </script>
+</body>
+</html>
